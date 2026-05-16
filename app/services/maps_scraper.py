@@ -1,4 +1,8 @@
 import asyncio
+import os
+from pathlib import Path
+import subprocess
+import sys
 import urllib.parse
 from dataclasses import dataclass
 
@@ -32,11 +36,33 @@ class GoogleMapsScraper:
     """
 
     async def scrape(self, query: str, max_results: int = 20, start_index: int = 0) -> ScrapeResult:
+        try:
+            return await self._scrape_once(query=query, max_results=max_results, start_index=start_index)
+        except Exception as exc:
+            # Self-heal on Render when browser binary cache is missing.
+            if 'Executable doesn' in str(exc) and 'ms-playwright' in str(exc):
+                self._install_playwright_chromium()
+                return await self._scrape_once(query=query, max_results=max_results, start_index=start_index)
+            raise
+
+    async def _scrape_once(self, query: str, max_results: int = 20, start_index: int = 0) -> ScrapeResult:
+        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
+            local_path = Path(__file__).resolve().parents[2] / '.playwright-browsers'
+            local_path.mkdir(parents=True, exist_ok=True)
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(local_path)
+
         encoded = urllib.parse.quote_plus(query)
         search_url = f'https://www.google.com/maps/search/{encoded}'
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                ],
+            )
             page = await browser.new_page()
             await page.goto(search_url, wait_until='domcontentloaded', timeout=90000)
             await page.wait_for_timeout(4000)
@@ -107,6 +133,18 @@ class GoogleMapsScraper:
                 consumed_count=len(selected_hrefs),
                 start_index=start_index,
             )
+
+    def _install_playwright_chromium(self) -> None:
+        # Keep browser binaries in project path when env is not explicitly set.
+        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
+            local_path = Path(__file__).resolve().parents[2] / '.playwright-browsers'
+            local_path.mkdir(parents=True, exist_ok=True)
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(local_path)
+
+        subprocess.run(
+            [sys.executable, '-m', 'playwright', 'install', 'chromium'],
+            check=True,
+        )
 
     async def _text_or_none(self, page, selector: str) -> str | None:
         el = page.locator(selector).first
