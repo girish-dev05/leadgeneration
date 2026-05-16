@@ -40,7 +40,8 @@ class GoogleMapsScraper:
             return await self._scrape_once(query=query, max_results=max_results, start_index=start_index)
         except Exception as exc:
             # Self-heal on Render when browser binary cache is missing.
-            if 'Executable doesn' in str(exc) and 'ms-playwright' in str(exc):
+            message = str(exc)
+            if 'Executable does' in message and ('ms-playwright' in message or '.playwright-browsers' in message):
                 self._install_playwright_chromium()
                 return await self._scrape_once(query=query, max_results=max_results, start_index=start_index)
             raise
@@ -142,7 +143,7 @@ class GoogleMapsScraper:
             os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(local_path)
 
         subprocess.run(
-            [sys.executable, '-m', 'playwright', 'install', 'chromium'],
+            [sys.executable, '-m', 'playwright', 'install', '--only-shell', 'chromium'],
             check=True,
         )
 
