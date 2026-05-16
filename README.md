@@ -52,8 +52,8 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 Note:
 - For MySQL mode, `create_database.py` creates DB if missing.
 - For Postgres mode (`DATABASE_URL` set), it skips create step automatically.
-- For Render deployments using Playwright, set `PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers`
-  and use build command: `pip install -r requirements.txt && python -m playwright install chromium`.
+- For Render deployments using Playwright, prefer default browser cache path
+  and use build command: `pip install -r requirements.txt && python -m playwright install --only-shell chromium`.
 
 Open: http://127.0.0.1:8000
 

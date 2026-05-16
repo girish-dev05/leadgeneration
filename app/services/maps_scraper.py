@@ -53,11 +53,6 @@ class GoogleMapsScraper:
             raise
 
     async def _scrape_once(self, query: str, max_results: int = 20, start_index: int = 0) -> ScrapeResult:
-        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
-            local_path = Path(__file__).resolve().parents[2] / '.playwright-browsers'
-            local_path.mkdir(parents=True, exist_ok=True)
-            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(local_path)
-
         encoded = urllib.parse.quote_plus(query)
         search_url = f'https://www.google.com/maps/search/{encoded}'
 
@@ -142,12 +137,6 @@ class GoogleMapsScraper:
             )
 
     def _install_playwright_chromium(self) -> None:
-        # Keep browser binaries in project path when env is not explicitly set.
-        if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
-            local_path = Path(__file__).resolve().parents[2] / '.playwright-browsers'
-            local_path.mkdir(parents=True, exist_ok=True)
-            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(local_path)
-
         subprocess.run(
             [sys.executable, '-m', 'playwright', 'install', '--only-shell', 'chromium'],
             check=True,
