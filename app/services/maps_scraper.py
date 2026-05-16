@@ -39,9 +39,15 @@ class GoogleMapsScraper:
         try:
             return await self._scrape_once(query=query, max_results=max_results, start_index=start_index)
         except Exception as exc:
-            # Self-heal on Render when browser binary cache is missing.
+            # Optional self-heal when browser binary cache is missing.
+            # Disabled by default because runtime installs can be heavy on small instances.
             message = str(exc)
-            if 'Executable does' in message and ('ms-playwright' in message or '.playwright-browsers' in message):
+            allow_runtime_install = os.environ.get('ALLOW_RUNTIME_PLAYWRIGHT_INSTALL', '').lower() == 'true'
+            if (
+                allow_runtime_install
+                and 'Executable does' in message
+                and ('ms-playwright' in message or '.playwright-browsers' in message)
+            ):
                 self._install_playwright_chromium()
                 return await self._scrape_once(query=query, max_results=max_results, start_index=start_index)
             raise
@@ -73,7 +79,7 @@ class GoogleMapsScraper:
             # Scroll result feed to load more businesses.
             feed = page.locator('div[role="feed"]')
             if await feed.count() > 0:
-                for _ in range(60):
+                for _ in range(25):
                     await feed.evaluate("el => el.scrollBy(0, el.scrollHeight)")
                     await page.wait_for_timeout(900)
                     current_count = await page.locator('a[href*="/maps/place/"]').count()
@@ -95,11 +101,11 @@ class GoogleMapsScraper:
 
             selected_hrefs = hrefs[start_index:start_index + max_results]
             leads: list[ScrapedLead] = []
-            for href in selected_hrefs:
-                detail = await browser.new_page()
-                try:
+            detail = await browser.new_page()
+            try:
+                for href in selected_hrefs:
                     await detail.goto(href, wait_until='domcontentloaded', timeout=90000)
-                    await detail.wait_for_timeout(2000)
+                    await detail.wait_for_timeout(1500)
 
                     name = await self._text_or_none(detail, 'h1.DUwDvf')
                     category = await self._text_or_none(detail, 'button.DkEaL')
@@ -125,8 +131,8 @@ class GoogleMapsScraper:
                             google_maps_url=href,
                         )
                     )
-                finally:
-                    await detail.close()
+            finally:
+                await detail.close()
 
             await browser.close()
             return ScrapeResult(

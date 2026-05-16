@@ -14,6 +14,20 @@ function parseMaybeJson(text) {
   }
 }
 
+function summarizeErrorResponse(statusCode, rawText, detailText) {
+  const lowerRaw = (rawText || '').toLowerCase();
+  const lowerDetail = (detailText || '').toLowerCase();
+  if (lowerRaw.includes('error code 520') || lowerRaw.includes('cloudflare ray id') || lowerDetail.includes('error code 520')) {
+    return 'Host crashed or returned invalid response (Cloudflare 520). Open Render Logs, restart service, and reduce scrape size (try 5-10).';
+  }
+  if (lowerDetail.includes('executable doesn') && lowerDetail.includes('headless_shell')) {
+    return 'Playwright browser binary missing on host. Rebuild with browser install command and PLAYWRIGHT_BROWSERS_PATH.';
+  }
+  if (detailText) return detailText;
+  if (statusCode) return `HTTP ${statusCode}`;
+  return 'Unknown server error';
+}
+
 document.getElementById('scrapeForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const query = document.getElementById('query').value.trim();
@@ -29,7 +43,7 @@ document.getElementById('scrapeForm').addEventListener('submit', async (e) => {
     const raw = await res.text();
     const data = parseMaybeJson(raw);
     if (!res.ok) {
-      const msg = data?.detail || raw || `HTTP ${res.status}`;
+      const msg = summarizeErrorResponse(res.status, raw, data?.detail);
       throw new Error(msg);
     }
     if (!data) {
@@ -55,7 +69,7 @@ document.getElementById('outreachBtn').addEventListener('click', async () => {
     const raw = await res.text();
     const data = parseMaybeJson(raw);
     if (!res.ok) {
-      const msg = data?.detail || raw || `HTTP ${res.status}`;
+      const msg = summarizeErrorResponse(res.status, raw, data?.detail);
       throw new Error(msg);
     }
     if (!data) {

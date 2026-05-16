@@ -36,7 +36,7 @@ scheduler = BackgroundScheduler()
 
 class ScrapeRequest(BaseModel):
     query: str = Field(min_length=3)
-    max_results: int = Field(default=20, ge=1, le=100)
+    max_results: int = Field(default=20, ge=1, le=25)
     resume_from_last: bool = False
 
 
